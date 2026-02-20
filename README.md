@@ -116,6 +116,7 @@ tag_extractor/
 ## Extending
 
 - **Add gazetteer terms**: Edit `gazetteer.py` — add to the `GAZETTEER` dict
-- **Change top-N**: Set `top_n` in the initial state dict passed to `graph.invoke()`
-- **Swap LLM**: Change the `model` param in `nodes.py` `ChatGroq(...)` calls
-- **Add an extractor**: Add a node to `nodes.py`, register in `graph.py`, wire edges
+- **Add a frontend**: Add a frontend for easy UX for non-technical users
+- **Swap LLM**: Change the `model` param in `nodes.py` calls
+- **Add more extractors**: Add more nodes for title and references to `nodes.py`, register in `graph.py`, wire edges
+
