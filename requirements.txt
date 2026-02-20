@@ -1,0 +1,12 @@
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-groq>=0.2.0
+langchain-core>=0.3.0
+spacy>=3.7.0
+python-dotenv>=1.0.0
+
+# Document ingestion
+pdfplumber>=0.11.0      # PDF extraction (layout-aware, primary)
+pypdf>=4.0.0            # PDF extraction (fallback)
+python-docx>=1.1.0      # .docx extraction
+mammoth>=1.6.0          # legacy .doc extraction
