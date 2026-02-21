@@ -4,7 +4,7 @@ Part of the **Agentic Authoring Assistant** project.
 
 ## Overview
 
-The Tag Extractor uses a LangGraph workflow with three parallel extraction methods — fused by an LLM aggregator — to produce the top 10 publication tags for any AI or healthcare article.
+The Tag Extractor, a sub-system of the Agentic Authoring Assistant, uses a LangGraph workflow with three parallel extraction methods, which are fused by an LLM aggregator to produce the top 10 publication tags for any AI or healthcare article.
 
 ```
 START → [Gazetteer | spaCy NER | LLM Extractor] (parallel) → Aggregator → END
@@ -113,10 +113,10 @@ tag_extractor/
 └── README.md
 ```
 
-## Extending
+## More updates to come
 
-- **Add gazetteer terms**: Edit `gazetteer.py` — add to the `GAZETTEER` dict
-- **Add a frontend**: Add a frontend for easy UX for non-technical users
-- **Swap LLM**: Change the `model` param in `nodes.py` calls
-- **Add more extractors**: Add more nodes for title and references to `nodes.py`, register in `graph.py`, wire edges
+- **New gazetteer terms**: Edit `gazetteer.py` — add to the `GAZETTEER` dict
+- **Frontend**: Adding a frontend for easy UX for non-technical users
+- **LLM Swap**: Swapping the `model` param in `nodes.py` calls
+- **More extractors**: Adding more nodes for title and references to `nodes.py`, register in `graph.py`, wire edges
 
