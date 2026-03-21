@@ -1,43 +1,34 @@
 """
-agents/references/graph.py — LangGraph graph for the References extraction agent.
+agents/references/graph.py
+--------------------------
+LangGraph graph for the References agent.
 
-Standalone usage:
-    from agents.references.graph import build_references_graph
-    graph = build_references_graph()
-    result = graph.invoke({
-        "article_text": "...",
-        "shared_context": { ... },
-        "revision_note": "",
-    })
-    # result["agent_result"] contains the AgentResult dict
+Graph topology (sequential pipeline):
+    START → citation_extractor_node → reference_parser_node → reference_formatter_node → END
 """
 
-from langgraph.graph import StateGraph, START, END
-from agents.references.state import ReferencesAgentState
+from __future__ import annotations
+
+from langgraph.graph import StateGraph, END, START
+
 from agents.references.nodes import (
-    references_start_node,
-    extract_raw_references_node,
-    format_references_node,
-    references_end_node,
+    citation_extractor_node,
+    reference_parser_node,
+    reference_formatter_node,
 )
+from agents.references.state import ReferencesState
 
 
 def build_references_graph() -> StateGraph:
-    """
-    Topology:
-      START → refs_start → extract_raw → format_refs → refs_end → END
-    """
-    builder = StateGraph(ReferencesAgentState)
+    builder = StateGraph(ReferencesState)
 
-    builder.add_node("refs_start",    references_start_node)
-    builder.add_node("extract_raw",   extract_raw_references_node)
-    builder.add_node("format_refs",   format_references_node)
-    builder.add_node("refs_end",      references_end_node)
+    builder.add_node("citation_extractor", citation_extractor_node)
+    builder.add_node("reference_parser", reference_parser_node)
+    builder.add_node("reference_formatter", reference_formatter_node)
 
-    builder.add_edge(START,           "refs_start")
-    builder.add_edge("refs_start",    "extract_raw")
-    builder.add_edge("extract_raw",   "format_refs")
-    builder.add_edge("format_refs",   "refs_end")
-    builder.add_edge("refs_end",      END)
+    builder.add_edge(START, "citation_extractor")
+    builder.add_edge("citation_extractor", "reference_parser")
+    builder.add_edge("reference_parser", "reference_formatter")
+    builder.add_edge("reference_formatter", END)
 
     return builder.compile()

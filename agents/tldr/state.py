@@ -1,29 +1,26 @@
-"""
-agents/tldr/state.py — State schema for the TLDR Generation agent.
-"""
+"""agents/tldr/state.py — internal LangGraph state for the TLDR agent."""
 
-from typing import TypedDict
+from __future__ import annotations
+
+from typing import Optional
+from typing_extensions import TypedDict
 
 
-class TLDRAgentState(TypedDict):
-    """
-    Internal state for the TLDR generation LangGraph workflow.
+class TLDRState(TypedDict, total=False):
+    # Input
+    text: str
+    key_themes: list[str]
+    target_audience: str
+    main_message: str
+    domain: str
+    article_type: str
+    reviewer_feedback: Optional[str]
 
-    Inputs:
-      - article_text   : full article text
-      - shared_context : SharedContext dict from the Manager
-      - revision_note  : Reviewer feedback — empty on first run
+    # Intermediate
+    draft_tldr: str                  # first-pass summary
+    key_points: list[str]            # bullet points extracted before drafting
 
-    Outputs:
-      - draft_tldr  : initial full draft before refinement
-      - tldr        : final refined TLDR (2–3 sentences, ≤ 80 words)
-      - word_count  : word count of the final tldr
-    """
-    article_text: str
-    shared_context: dict
-    revision_note: str
-
-    draft_tldr: str
-    tldr: str
-    word_count: int
-    error: str
+    # Final
+    final_tldr: str                  # polished single paragraph
+    one_liner: str                   # ≤ 25 word elevator pitch
+    error: Optional[str]

@@ -1,12 +1,23 @@
+# ── Core framework ────────────────────────────────────────────────────────────
 langgraph>=0.2.0
-langchain>=0.3.0
-langchain-groq>=0.2.0
-langchain-core>=0.3.0
+langchain-core>=0.2.0
+
+# ── LLM provider ──────────────────────────────────────────────────────────────
+groq>=0.9.0
+
+# ── NLP (optional but recommended) ───────────────────────────────────────────
 spacy>=3.7.0
+# After install, download model:
+#   python -m spacy download en_core_web_md
+
+# ── File ingestion ────────────────────────────────────────────────────────────
+pdfplumber>=0.11.0
+pypdf>=4.0.0          # fallback PDF reader
+python-docx>=1.1.0    # .docx support
+mammoth>=1.6.0        # .doc (legacy Word) support
+
+# ── Environment ───────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
 
-# Document ingestion
-pdfplumber>=0.11.0      # PDF extraction (layout-aware, primary)
-pypdf>=4.0.0            # PDF extraction (fallback)
-python-docx>=1.1.0      # .docx extraction
-mammoth>=1.6.0          # legacy .doc extraction
+# ── Type hints ────────────────────────────────────────────────────────────────
+typing-extensions>=4.9.0

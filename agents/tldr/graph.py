@@ -1,43 +1,30 @@
 """
-agents/tldr/graph.py — LangGraph graph for the TLDR Generation agent.
+agents/tldr/graph.py
+--------------------
+LangGraph graph for the TLDR agent.
 
-Standalone usage:
-    from agents.tldr.graph import build_tldr_graph
-    graph = build_tldr_graph()
-    result = graph.invoke({
-        "article_text": "...",
-        "shared_context": { ... },
-        "revision_note": "",
-    })
-    # result["agent_result"] contains the AgentResult dict
+Graph topology (sequential pipeline):
+    START → key_points_node → tldr_drafter_node → tldr_refiner_node → END
 """
 
-from langgraph.graph import StateGraph, START, END
-from agents.tldr.state import TLDRAgentState
-from agents.tldr.nodes import (
-    tldr_start_node,
-    draft_tldr_node,
-    refine_tldr_node,
-    tldr_end_node,
-)
+from __future__ import annotations
+
+from langgraph.graph import StateGraph, END, START
+
+from agents.tldr.nodes import key_points_node, tldr_drafter_node, tldr_refiner_node
+from agents.tldr.state import TLDRState
 
 
 def build_tldr_graph() -> StateGraph:
-    """
-    Topology:
-      START → tldr_start → draft_tldr → refine_tldr → tldr_end → END
-    """
-    builder = StateGraph(TLDRAgentState)
+    builder = StateGraph(TLDRState)
 
-    builder.add_node("tldr_start",   tldr_start_node)
-    builder.add_node("draft_tldr",   draft_tldr_node)
-    builder.add_node("refine_tldr",  refine_tldr_node)
-    builder.add_node("tldr_end",     tldr_end_node)
+    builder.add_node("key_points", key_points_node)
+    builder.add_node("tldr_drafter", tldr_drafter_node)
+    builder.add_node("tldr_refiner", tldr_refiner_node)
 
-    builder.add_edge(START,          "tldr_start")
-    builder.add_edge("tldr_start",   "draft_tldr")
-    builder.add_edge("draft_tldr",   "refine_tldr")
-    builder.add_edge("refine_tldr",  "tldr_end")
-    builder.add_edge("tldr_end",     END)
+    builder.add_edge(START, "key_points")
+    builder.add_edge("key_points", "tldr_drafter")
+    builder.add_edge("tldr_drafter", "tldr_refiner")
+    builder.add_edge("tldr_refiner", END)
 
     return builder.compile()

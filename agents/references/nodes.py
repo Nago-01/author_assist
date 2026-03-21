@@ -1,180 +1,234 @@
 """
-agents/references/nodes.py — Nodes for the References extraction agent.
+agents/references/nodes.py
+--------------------------
+Node functions for the References agent LangGraph graph.
 
-Node inventory:
-  1. references_start_node      — validates input
-  2. extract_raw_references_node — regex + heuristics to pull citation strings
-  3. format_references_node      — LLM normalises into APA-like style
-  4. references_end_node         — wraps output into AgentResult
+Nodes
+-----
+citation_extractor_node  — regex + LLM to pull raw citation strings from text
+reference_parser_node    — structure each citation into a dict
+reference_formatter_node — normalise, deduplicate, detect style, finalise list
 """
 
-import re
+from __future__ import annotations
+
 import json
-import logging
+import os
+import re
 
-logger = logging.getLogger(__name__)
+from groq import Groq
 
+from agents.references.state import ReferencesState
 
-# ─── 1. START ─────────────────────────────────────────────────────────────────
-
-def references_start_node(state: dict) -> dict:
-    article_text = state.get("article_text", "").strip()
-    if not article_text:
-        return {"error": "No article text provided.", "raw_references": [], "references": [], "count": 0}
-
-    revision = state.get("revision_note", "")
-    if revision:
-        logger.info(f"[REFS:START] Revision note: {revision}")
-
-    logger.info(f"[REFS:START] {len(article_text.split())} words received.")
-    return {"error": "", "raw_references": [], "references": [], "count": 0}
+_CLIENT: Groq | None = None
 
 
-# ─── 2. EXTRACT RAW REFERENCES ────────────────────────────────────────────────
+def _get_client() -> Groq:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = Groq(api_key=os.environ["GROQ_API_KEY"])
+    return _CLIENT
 
-# Patterns to locate the references / bibliography section
-_SECTION_HEADERS = re.compile(
-    r'\n\s*(References|Bibliography|Works Cited|Citations|Literature)\s*\n',
-    re.IGNORECASE,
+
+# ── Node 1: Citation Extractor ────────────────────────────────────────────────
+
+# Common patterns: [1], [Author, 2023], (Author et al., 2023), numbered bibliography lines
+_INLINE_PATTERNS = [
+    r"\[[\w\s,\.]+\d{4}[a-z]?\]",          # [Smith, 2023] / [Smith et al., 2023a]
+    r"\(\w[\w\s,\.]+,\s*\d{4}[a-z]?\)",     # (Smith, 2023)
+    r"\[\d+\]",                              # [1], [23]
+]
+
+_BIBLIOGRAPHY_PATTERN = re.compile(
+    r"(?:^|\n)\s*(?:\[\d+\]|\d+\.)\s+(.{30,250})",
+    re.MULTILINE,
 )
 
-# A line that looks like a numbered or bracketed citation entry
-_REF_LINE = re.compile(
-    r'^\s*(\[\d+\]|\d+\.|\d+\))\s+.{10,}',
-)
+_EXTRACTOR_SYSTEM = """You are a citation extraction specialist.
+Given an article, extract ALL reference / bibliography entries you can find.
+Look for: numbered references, in-text citations, bibliography sections.
 
-# Author-year inline citation: "Smith et al. (2023)" or "Smith & Jones, 2022"
-_AUTHOR_YEAR = re.compile(
-    r'[A-Z][a-z]+(?: et al\.?| & [A-Z][a-z]+)?,?\s*\(?(?:19|20)\d{2}\)?',
-)
+Return ONLY a JSON array of strings, each string being one raw citation as it appears.
+If you find no citations, return an empty array [].
+No markdown, no preamble, no commentary."""
 
 
-def extract_raw_references_node(state: dict) -> dict:
-    """
-    Extracts raw reference strings from the article text using two strategies:
+def citation_extractor_node(state: ReferencesState) -> ReferencesState:
+    text = state.get("text", "")
 
-    1. Section-based: looks for a References/Bibliography section heading and
-       pulls numbered/bulleted lines beneath it.
-    2. Inline fallback: collects "Author et al. (Year)" patterns from the full text.
-    """
-    text = state.get("article_text", "")
-    raw_refs: list[str] = []
+    # Step 1: regex pre-scan for bibliography lines
+    regex_hits = [m.group(1).strip() for m in _BIBLIOGRAPHY_PATTERN.finditer(text)]
 
-    # Strategy 1: find a references section
-    match = _SECTION_HEADERS.search(text)
-    if match:
-        refs_section = text[match.end():]
-        lines = refs_section.split("\n")
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            # Stop if we hit another major section heading
-            if re.match(r'^[A-Z][A-Za-z\s]{2,30}$', stripped) and len(stripped.split()) <= 4:
-                break
-            if _REF_LINE.match(line) or len(stripped) > 40:
-                raw_refs.append(stripped)
-        logger.info(f"[REFS:EXTRACT] Found references section — {len(raw_refs)} entries.")
+    # Step 2: LLM extraction on the last 3000 chars (references usually at end)
+    tail = text[-3000:] if len(text) > 3000 else text
+    client = _get_client()
 
-    # Strategy 2: inline citation fallback (if section strategy found nothing)
-    if not raw_refs:
-        logger.info("[REFS:EXTRACT] No bibliography section found — using inline citation extraction.")
-        seen: set[str] = set()
-        for m in _AUTHOR_YEAR.finditer(text):
-            # Expand to grab the surrounding sentence fragment
-            start = max(0, m.start() - 30)
-            end = min(len(text), m.end() + 100)
-            snippet = text[start:end].strip().replace("\n", " ")
-            key = m.group(0)
-            if key not in seen:
-                seen.add(key)
-                raw_refs.append(snippet)
-        logger.info(f"[REFS:EXTRACT] Inline strategy — {len(raw_refs)} citations found.")
+    feedback = state.get("reviewer_feedback")
+    system = _EXTRACTOR_SYSTEM
+    if feedback:
+        system += f"\n\nREVIEWER FEEDBACK: {feedback}"
 
-    return {"raw_references": raw_refs}
-
-
-# ─── 3. FORMAT REFERENCES ────────────────────────────────────────────────────
-
-_FORMAT_SYSTEM = """\
-You are a scholarly editor responsible for normalising academic references.
-Format each raw reference string into a clean APA 7th edition citation.
-
-Rules:
-  - Author(s). (Year). Title. Venue (Journal/Conference). DOI/URL if present.
-  - If information is missing, include what is available and omit the rest.
-  - Do not invent authors, titles, or years that are not present in the raw string.
-  - Deduplicate: if two raw strings clearly refer to the same source, include only one.
-  {revision_note}
-
-Return ONLY a valid JSON array of formatted citation strings. No other text."""
-
-_FORMAT_USER = """\
-Raw reference strings extracted from the article:
-{raw_refs_json}
-
-Return a JSON array of formatted APA-style citations."""
-
-
-def format_references_node(state: dict) -> dict:
-    from shared.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
-
-    raw_refs = state.get("raw_references", [])
-    revision = state.get("revision_note", "")
-
-    if not raw_refs:
-        logger.warning("[REFS:FORMAT] No raw references to format.")
-        return {"references": [], "count": 0}
-
-    # Cap at 50 references to stay within LLM context limits
-    refs_to_format = raw_refs[:50]
-    system_prompt = _FORMAT_SYSTEM.format(
-        revision_note=f"- REVISION: {revision}" if revision else "",
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Article tail section:\n\n{tail}"},
+        ],
+        temperature=0.1,
+        max_tokens=2048,
     )
 
-    llm = get_llm(temperature=0.1)
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=_FORMAT_USER.format(
-                raw_refs_json=json.dumps(refs_to_format, indent=2),
-            )),
-        ])
-        raw = response.content.strip()
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-        formatted = json.loads(raw)
+        llm_hits = json.loads(raw)
+        if not isinstance(llm_hits, list):
+            llm_hits = []
+    except json.JSONDecodeError:
+        llm_hits = []
 
-        if not isinstance(formatted, list):
-            formatted = []
+    # Merge regex + LLM hits, deduplicate by first 60 chars
+    seen: set[str] = set()
+    merged: list[str] = []
+    for citation in regex_hits + llm_hits:
+        key = str(citation)[:60].lower().strip()
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(str(citation).strip())
 
-        logger.info(f"[REFS:FORMAT] {len(formatted)} references formatted.")
-        return {"references": formatted, "count": len(formatted)}
-
-    except Exception as e:
-        logger.error(f"[REFS:FORMAT] Error: {e}")
-        # Fallback: return raw strings as-is
-        return {"references": refs_to_format, "count": len(refs_to_format), "error": str(e)}
+    return {**state, "raw_citations": merged}
 
 
-# ─── 4. END ───────────────────────────────────────────────────────────────────
+# ── Node 2: Reference Parser ──────────────────────────────────────────────────
 
-def references_end_node(state: dict) -> dict:
-    refs = state.get("references", [])
-    error = state.get("error", "")
-    status = "failed" if error and not refs else ("partial" if not refs else "success")
-    logger.info(f"[REFS:END] status={status} count={len(refs)}")
+_PARSER_SYSTEM = """You are a bibliographic data parser.
+Given a list of raw citation strings, parse each into a structured object.
+
+For each citation return:
+{
+  "authors": ["Last, F.", ...],   // list of author strings; [] if unknown
+  "year": "2023",                 // string or null
+  "title": "Paper title",        // string or null
+  "venue": "Journal / Conference name",  // string or null
+  "volume": "12",                // string or null
+  "pages": "100-110",            // string or null
+  "doi": "10.xxxx/...",          // string or null
+  "raw": "original citation string"
+}
+
+Return ONLY a JSON array of these objects (one per input citation).
+No markdown, no preamble."""
+
+
+def reference_parser_node(state: ReferencesState) -> ReferencesState:
+    raw_citations = state.get("raw_citations", [])
+    if not raw_citations:
+        return {**state, "structured_refs": []}
+
+    client = _get_client()
+
+    # Process in batches of 20 to stay within token limits
+    structured: list[dict] = []
+    batch_size = 20
+
+    for i in range(0, len(raw_citations), batch_size):
+        batch = raw_citations[i : i + batch_size]
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": _PARSER_SYSTEM},
+                {"role": "user", "content": json.dumps(batch)},
+            ],
+            temperature=0.0,
+            max_tokens=2048,
+        )
+
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        raw = raw.strip()
+
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                structured.extend(parsed)
+        except json.JSONDecodeError:
+            # fallback: keep as raw-only objects
+            for citation in batch:
+                structured.append({"raw": citation})
+
+    return {**state, "structured_refs": structured}
+
+
+# ── Node 3: Reference Formatter ───────────────────────────────────────────────
+
+_FORMATTER_SYSTEM = """You are a reference list editor.
+Given structured reference data, do three things:
+1. Detect the citation style ("APA", "IEEE", "Vancouver", "MLA", "Chicago", or "Mixed/Unknown").
+2. Deduplicate references (same title or same DOI = duplicate; keep one).
+3. Format each reference cleanly in the detected style.
+
+Return ONLY a JSON object:
+{
+  "citation_style": "APA",
+  "references": [
+    {
+      "formatted": "Full formatted reference string",
+      "authors": [...],
+      "year": "...",
+      "title": "...",
+      "venue": "...",
+      "doi": "..."
+    },
+    ...
+  ]
+}
+No markdown, no preamble."""
+
+
+def reference_formatter_node(state: ReferencesState) -> ReferencesState:
+    structured_refs = state.get("structured_refs", [])
+    if not structured_refs:
+        return {**state, "final_references": [], "citation_style": "Unknown"}
+
+    client = _get_client()
+    feedback = state.get("reviewer_feedback")
+
+    system = _FORMATTER_SYSTEM
+    if feedback:
+        system += f"\n\nREVIEWER FEEDBACK: {feedback}"
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(structured_refs[:40])},  # cap at 40
+        ],
+        temperature=0.1,
+        max_tokens=4096,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = {}
 
     return {
-        "agent_result": {
-            "agent": "references",
-            "output": {
-                "references": refs,
-                "count": len(refs),
-                "raw_count": len(state.get("raw_references", [])),
-            },
-            "status": status,
-            "error": error,
-        }
+        **state,
+        "final_references": parsed.get("references", []),
+        "citation_style": parsed.get("citation_style", "Unknown"),
     }

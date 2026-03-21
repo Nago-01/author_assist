@@ -1,1 +1,4 @@
-# agents/references — References extraction agent (self-contained, reusable)
+"""agents.references — standalone references extraction agent."""
+from agents.references.agent import ReferencesAgent
+
+__all__ = ["ReferencesAgent"]

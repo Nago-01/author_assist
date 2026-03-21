@@ -1,196 +1,155 @@
 """
-agents/title/nodes.py — Nodes for the Title Generation agent.
+agents/title/nodes.py
+---------------------
+Node functions for the Title agent LangGraph graph.
 
-Node inventory:
-  1. title_start_node       — validates input
-  2. generate_candidates_node — LLM generates 5 candidate titles
-  3. rank_titles_node        — LLM selects the best + 2 alternates
-  4. title_end_node          — wraps output into AgentResult
+Nodes
+-----
+candidate_generator_node  — generate 5 candidate titles via LLM
+title_selector_node       — pick the best one, explain why
 """
 
-import re
+from __future__ import annotations
+
 import json
-import logging
+import os
 
-logger = logging.getLogger(__name__)
+from groq import Groq
 
+from agents.title.state import TitleState
 
-# ─── 1. START ─────────────────────────────────────────────────────────────────
-
-def title_start_node(state: dict) -> dict:
-    article_text = state.get("article_text", "").strip()
-    if not article_text:
-        return {"error": "No article text provided.", "candidates": [], "primary_title": "", "alternates": [], "rationale": ""}
-
-    revision = state.get("revision_note", "")
-    if revision:
-        logger.info(f"[TITLE:START] Revision note: {revision}")
-
-    logger.info(f"[TITLE:START] {len(article_text.split())} words received.")
-    return {"error": "", "candidates": [], "primary_title": "", "alternates": [], "rationale": ""}
+_CLIENT: Groq | None = None
 
 
-# ─── 2. GENERATE CANDIDATES ───────────────────────────────────────────────────
-
-_CANDIDATES_SYSTEM = """\
-You are an expert science communicator and editor.
-Generate exactly 5 strong candidate titles for an article, guided by the shared context.
-
-Context:
-  Key themes    : {key_themes}
-  Target audience: {target_audience}
-  Main message  : {main_message}
-  Domain        : {domain}
-  Language style: {language_style}
-
-Title guidelines:
-  - Specific, informative, and accurate to the article content
-  - Appropriate for the indicated language style and audience
-  - Vary the approach across candidates (e.g., question, declarative, method-focused, result-focused)
-  - No clickbait; no vague filler words
-  {revision_prefix}
-
-Return ONLY a valid JSON array of exactly 5 title strings. No other text."""
-
-_CANDIDATES_USER = """\
-Article (first 3000 characters):
----
-{article_snippet}
----
-
-Return a JSON array of 5 candidate titles."""
+def _get_client() -> Groq:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = Groq(api_key=os.environ["GROQ_API_KEY"])
+    return _CLIENT
 
 
-def generate_candidates_node(state: dict) -> dict:
-    from shared.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
+# ── Node 1: Candidate Generator ──────────────────────────────────────────────
 
-    ctx = state.get("shared_context", {})
-    revision = state.get("revision_note", "")
-    text_snippet = state.get("article_text", "")[:3000]
+_CANDIDATE_SYSTEM = """You are an academic publication title specialist.
+Given an article's text and metadata, generate exactly 5 candidate titles.
 
-    system_prompt = _CANDIDATES_SYSTEM.format(
-        key_themes=", ".join(ctx.get("key_themes", [])) or "not specified",
-        target_audience=ctx.get("target_audience", "general readers"),
-        main_message=ctx.get("main_message", ""),
-        domain=ctx.get("domain", ""),
-        language_style=ctx.get("language_style", "academic"),
-        revision_prefix=f"REVISION REQUEST: {revision}" if revision else "",
+Each title should be:
+- Precise and informative (not vague or clickbait)
+- Appropriate for the target audience
+- Reflect the article's main contribution or finding
+- Vary in style: one formal, one question-based, one colon-separated, one brief, one descriptive
+
+Return ONLY a JSON array of 5 title strings. No markdown, no preamble, no numbering."""
+
+
+def candidate_generator_node(state: TitleState) -> TitleState:
+    client = _get_client()
+    text = state.get("text", "")[:4000]
+    themes = ", ".join(state.get("key_themes", []))
+    audience = state.get("target_audience", "")
+    message = state.get("main_message", "")
+    domain = state.get("domain", "General")
+    article_type = state.get("article_type", "research")
+    feedback = state.get("reviewer_feedback")
+
+    system = _CANDIDATE_SYSTEM
+    if feedback:
+        system += f"\n\nREVIEWER FEEDBACK — apply this when generating titles: {feedback}"
+
+    user_content = (
+        f"Domain: {domain} | Type: {article_type}\n"
+        f"Key themes: {themes}\n"
+        f"Target audience: {audience}\n"
+        f"Main message: {message}\n\n"
+        f"Article excerpt:\n{text}"
     )
 
-    llm = get_llm(temperature=0.7)   # Higher temp for creative title diversity
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.7,
+        max_tokens=512,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=_CANDIDATES_USER.format(article_snippet=text_snippet)),
-        ])
-        raw = response.content.strip()
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
         candidates = json.loads(raw)
         if not isinstance(candidates, list):
             candidates = []
+    except json.JSONDecodeError:
+        candidates = []
 
-        logger.info(f"[TITLE:CANDIDATES] {len(candidates)} candidates generated.")
-        return {"candidates": candidates}
-
-    except Exception as e:
-        logger.error(f"[TITLE:CANDIDATES] Error: {e}")
-        return {"candidates": [], "error": str(e)}
+    return {**state, "candidate_titles": candidates[:5]}
 
 
-# ─── 3. RANK TITLES ───────────────────────────────────────────────────────────
+# ── Node 2: Title Selector ────────────────────────────────────────────────────
 
-_RANK_SYSTEM = """\
-You are a senior editor evaluating candidate article titles.
-Select the BEST primary title and 2 runner-up alternates from the list.
+_SELECTOR_SYSTEM = """You are a senior journal editor selecting the best title from candidates.
+Given the article context and 5 candidate titles, select the single best title.
 
-Shared context:
-  Main message  : {main_message}
-  Target audience: {target_audience}
-  Language style: {language_style}
+Consider:
+1. Clarity and precision
+2. Relevance to the main contribution
+3. Appeal to the target audience
+4. Academic appropriateness
 
-Criteria:
-  - Clarity, accuracy, and informativeness
-  - Appeal to the target audience
-  - Specificity (avoids vague generalities)
-  {revision_note}
-
-Return ONLY a valid JSON object with these keys:
-  "primary"   : the single best title string
-  "alternates": array of exactly 2 runner-up title strings
-  "rationale" : one sentence explaining why primary was chosen
-
-No text outside the JSON object."""
-
-_RANK_USER = """\
-Candidate titles:
-{candidates_json}
-
-Choose the best. Return JSON only."""
+Return ONLY a JSON object:
+{
+  "final_title": "The selected best title",
+  "rationale": "One sentence explaining why this is the best choice.",
+  "alternatives": ["second best", "third best"]
+}
+No markdown, no preamble."""
 
 
-def rank_titles_node(state: dict) -> dict:
-    from shared.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
+def title_selector_node(state: TitleState) -> TitleState:
+    client = _get_client()
+    candidates = state.get("candidate_titles", [])
+    themes = ", ".join(state.get("key_themes", []))
+    audience = state.get("target_audience", "")
+    message = state.get("main_message", "")
 
-    candidates = state.get("candidates", [])
-    ctx = state.get("shared_context", {})
-    revision = state.get("revision_note", "")
-
-    if not candidates:
-        return {"primary_title": "", "alternates": [], "rationale": "No candidates available.", "error": "No candidates to rank."}
-
-    system_prompt = _RANK_SYSTEM.format(
-        main_message=ctx.get("main_message", ""),
-        target_audience=ctx.get("target_audience", "general readers"),
-        language_style=ctx.get("language_style", "academic"),
-        revision_note=f"- REVISION: {revision}" if revision else "",
+    user_content = (
+        f"Key themes: {themes}\n"
+        f"Target audience: {audience}\n"
+        f"Main message: {message}\n\n"
+        f"Candidate titles:\n{json.dumps(candidates, indent=2)}"
     )
 
-    llm = get_llm(temperature=0.1)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": _SELECTOR_SYSTEM},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.1,
+        max_tokens=512,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=_RANK_USER.format(candidates_json=json.dumps(candidates, indent=2))),
-        ])
-        raw = response.content.strip()
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-        result = json.loads(raw)
-
-        primary = result.get("primary", "")
-        alternates = result.get("alternates", [])[:2]
-        rationale = result.get("rationale", "")
-
-        logger.info(f"[TITLE:RANK] Primary: '{primary}'")
-        return {"primary_title": primary, "alternates": alternates, "rationale": rationale}
-
-    except Exception as e:
-        logger.error(f"[TITLE:RANK] Error: {e}")
-        first = candidates[0] if candidates else ""
-        return {"primary_title": first, "alternates": candidates[1:3], "rationale": "Fallback (ranker error)", "error": str(e)}
-
-
-# ─── 4. END ───────────────────────────────────────────────────────────────────
-
-def title_end_node(state: dict) -> dict:
-    primary = state.get("primary_title", "")
-    error = state.get("error", "")
-
-    status = "failed" if error and not primary else ("partial" if not primary else "success")
-    logger.info(f"[TITLE:END] status={status} title='{primary}'")
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = {}
 
     return {
-        "agent_result": {
-            "agent": "title",
-            "output": {
-                "primary": primary,
-                "alternates": state.get("alternates", []),
-                "rationale": state.get("rationale", ""),
-                "all_candidates": state.get("candidates", []),
-            },
-            "status": status,
-            "error": error,
-        }
+        **state,
+        "final_title": parsed.get("final_title", candidates[0] if candidates else ""),
+        "title_rationale": parsed.get("rationale", ""),
+        "alternative_titles": parsed.get("alternatives", []),
     }

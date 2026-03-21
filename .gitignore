@@ -1,55 +1,33 @@
 # Environment
 .env
-.env.*
-!.env.example
+*.env
 
-# Python Virtual Environments
-.venv/
-venv/
-env/
-ENV/
-
-# Python Cache
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
-*.pyd
-.Python
-
-# Distribution / Build
+.pytest_cache/
+*.egg-info/
 dist/
 build/
-*.egg-info/
-*.egg
 .eggs/
 
-# Testing & Coverage
-.pytest_cache/
-.coverage
-coverage.xml
-htmlcov/
-*.test.json
+# Virtual environments
+venv/
+.venv/
+env/
 
-# Tag Extractor Outputs
-outputs/
-tag_extractor_output.json
+# Output files
+author_assist_output.json
+*.json
+!package.json
 
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
-
-# IDEs & Editors
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# spaCy models
-en_core_web_*/

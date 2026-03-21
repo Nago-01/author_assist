@@ -1,62 +1,52 @@
 """
-agents/tags/graph.py — LangGraph graph for the Tags extraction agent.
+agents/tags/graph.py
+--------------------
+Wires the Tags agent internal LangGraph graph.
 
-Standalone usage:
-    from agents.tags.graph import build_tags_graph
-    graph = build_tags_graph()
-    result = graph.invoke({
-        "article_text": "...",
-        "shared_context": { ... },   # SharedContext dict
-        "revision_note": "",         # empty on first run
-        "top_n": 10,
-    })
-    # result["agent_result"] contains the AgentResult dict
+Graph topology (parallel extraction):
+    START
+      ↓ (fan-out)
+    gazetteer_node | spacy_node | llm_extractor_node
+      ↓ (fan-in)
+    aggregator_node
+      ↓
+    END
 """
 
-from langgraph.graph import StateGraph, START, END
-from agents.tags.state import TagAgentState
+from __future__ import annotations
+
+from langgraph.graph import StateGraph, END, START
+
 from agents.tags.nodes import (
-    tags_start_node,
     gazetteer_node,
     spacy_node,
     llm_extractor_node,
     aggregator_node,
-    tags_end_node,
 )
+from agents.tags.state import TagState
 
 
-def build_tags_graph() -> StateGraph:
-    """
-    Constructs and compiles the Tags extraction workflow.
+def build_tag_graph() -> StateGraph:
+    """Build and compile the Tags extraction graph."""
+    builder = StateGraph(TagState)
 
-    Topology:
-      START → tags_start_node
-            → [gazetteer_node | spacy_node | llm_extractor_node]  (parallel)
-            → aggregator_node
-            → tags_end_node → END
-    """
-    builder = StateGraph(TagAgentState)
+    # Register nodes
+    builder.add_node("gazetteer", gazetteer_node)
+    builder.add_node("spacy", spacy_node)
+    builder.add_node("llm_extractor", llm_extractor_node)
+    builder.add_node("aggregator", aggregator_node)
 
-    builder.add_node("tags_start",      tags_start_node)
-    builder.add_node("gazetteer",       gazetteer_node)
-    builder.add_node("spacy",           spacy_node)
-    builder.add_node("llm_extractor",   llm_extractor_node)
-    builder.add_node("aggregator",      aggregator_node)
-    builder.add_node("tags_end",        tags_end_node)
+    # Fan-out from START to all three extractors in parallel
+    builder.add_edge(START, "gazetteer")
+    builder.add_edge(START, "spacy")
+    builder.add_edge(START, "llm_extractor")
 
-    builder.add_edge(START, "tags_start")
-
-    # Fan-out to three parallel extractors
-    builder.add_edge("tags_start",    "gazetteer")
-    builder.add_edge("tags_start",    "spacy")
-    builder.add_edge("tags_start",    "llm_extractor")
-
-    # Fan-in to aggregator
-    builder.add_edge("gazetteer",     "aggregator")
-    builder.add_edge("spacy",         "aggregator")
+    # Fan-in: all three converge on aggregator
+    builder.add_edge("gazetteer", "aggregator")
+    builder.add_edge("spacy", "aggregator")
     builder.add_edge("llm_extractor", "aggregator")
 
-    builder.add_edge("aggregator", "tags_end")
-    builder.add_edge("tags_end",   END)
+    # Aggregator → END
+    builder.add_edge("aggregator", END)
 
     return builder.compile()

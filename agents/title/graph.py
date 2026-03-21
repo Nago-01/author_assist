@@ -1,43 +1,28 @@
 """
-agents/title/graph.py — LangGraph graph for the Title Generation agent.
+agents/title/graph.py
+---------------------
+LangGraph graph for the Title agent.
 
-Standalone usage:
-    from agents.title.graph import build_title_graph
-    graph = build_title_graph()
-    result = graph.invoke({
-        "article_text": "...",
-        "shared_context": { ... },
-        "revision_note": "",
-    })
-    # result["agent_result"] contains the AgentResult dict
+Graph topology (sequential — selection depends on candidates):
+    START → candidate_generator_node → title_selector_node → END
 """
 
-from langgraph.graph import StateGraph, START, END
-from agents.title.state import TitleAgentState
-from agents.title.nodes import (
-    title_start_node,
-    generate_candidates_node,
-    rank_titles_node,
-    title_end_node,
-)
+from __future__ import annotations
+
+from langgraph.graph import StateGraph, END, START
+
+from agents.title.nodes import candidate_generator_node, title_selector_node
+from agents.title.state import TitleState
 
 
 def build_title_graph() -> StateGraph:
-    """
-    Topology:
-      START → title_start → generate_candidates → rank_titles → title_end → END
-    """
-    builder = StateGraph(TitleAgentState)
+    builder = StateGraph(TitleState)
 
-    builder.add_node("title_start",          title_start_node)
-    builder.add_node("generate_candidates",  generate_candidates_node)
-    builder.add_node("rank_titles",          rank_titles_node)
-    builder.add_node("title_end",            title_end_node)
+    builder.add_node("candidate_generator", candidate_generator_node)
+    builder.add_node("title_selector", title_selector_node)
 
-    builder.add_edge(START,                 "title_start")
-    builder.add_edge("title_start",         "generate_candidates")
-    builder.add_edge("generate_candidates", "rank_titles")
-    builder.add_edge("rank_titles",         "title_end")
-    builder.add_edge("title_end",           END)
+    builder.add_edge(START, "candidate_generator")
+    builder.add_edge("candidate_generator", "title_selector")
+    builder.add_edge("title_selector", END)
 
     return builder.compile()

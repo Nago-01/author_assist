@@ -1,31 +1,26 @@
-"""
-agents/title/state.py — State schema for the Title Generation agent.
-"""
+"""agents/title/state.py — internal LangGraph state for the Title agent."""
 
-from typing import TypedDict
+from __future__ import annotations
+
+from typing import Optional
+from typing_extensions import TypedDict
 
 
-class TitleAgentState(TypedDict):
-    """
-    Internal state for the Title generation LangGraph workflow.
+class TitleState(TypedDict, total=False):
+    # Input
+    text: str
+    key_themes: list[str]
+    target_audience: str
+    main_message: str
+    domain: str
+    article_type: str
+    reviewer_feedback: Optional[str]
 
-    Inputs:
-      - article_text   : full article text (truncated internally if needed)
-      - shared_context : SharedContext dict from the Manager
-      - revision_note  : Reviewer feedback — empty on first run
+    # Intermediate
+    candidate_titles: list[str]          # multiple raw candidates
 
-    Outputs:
-      - candidates     : list of 5 candidate titles generated
-      - primary_title  : the best single title selected
-      - alternates     : 2 runner-up titles
-      - rationale      : why the primary was chosen
-    """
-    article_text: str
-    shared_context: dict
-    revision_note: str
-
-    candidates: list[str]
-    primary_title: str
-    alternates: list[str]
-    rationale: str
-    error: str
+    # Final
+    final_title: str
+    title_rationale: str
+    alternative_titles: list[str]        # runner-up options
+    error: Optional[str]

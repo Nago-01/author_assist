@@ -1,170 +1,180 @@
 """
-agents/tldr/nodes.py — Nodes for the TLDR Generation agent.
+agents/tldr/nodes.py
+--------------------
+Node functions for the TLDR agent LangGraph graph.
 
-Node inventory:
-  1. tldr_start_node   — validates input
-  2. draft_tldr_node   — LLM writes an initial full-length TLDR draft
-  3. refine_tldr_node  — LLM tightens it to ≤ 80 words, audience-aligned
-  4. tldr_end_node     — wraps output into AgentResult
+Nodes
+-----
+key_points_node   — extract 3-5 core take-aways from the article
+tldr_drafter_node — write a coherent TLDR paragraph from the key points
+tldr_refiner_node — polish, apply feedback, produce one-liner
 """
 
-import re
+from __future__ import annotations
+
 import json
-import logging
+import os
 
-logger = logging.getLogger(__name__)
+from groq import Groq
 
+from agents.tldr.state import TLDRState
 
-# ─── 1. START ─────────────────────────────────────────────────────────────────
-
-def tldr_start_node(state: dict) -> dict:
-    article_text = state.get("article_text", "").strip()
-    if not article_text:
-        return {"error": "No article text provided.", "draft_tldr": "", "tldr": "", "word_count": 0}
-
-    revision = state.get("revision_note", "")
-    if revision:
-        logger.info(f"[TLDR:START] Revision note: {revision}")
-
-    logger.info(f"[TLDR:START] {len(article_text.split())} words received.")
-    return {"error": "", "draft_tldr": "", "tldr": "", "word_count": 0}
+_CLIENT: Groq | None = None
 
 
-# ─── 2. DRAFT ─────────────────────────────────────────────────────────────────
-
-_DRAFT_SYSTEM = """\
-You are a scientific communicator writing a TLDR for an article.
-Produce a comprehensive 3–5 sentence draft that captures:
-  1. The core problem or question
-  2. The method or approach used
-  3. The key result or contribution
-
-Shared context:
-  Key themes    : {key_themes}
-  Main message  : {main_message}
-  Target audience: {target_audience}
-  Domain        : {domain}
-
-Write in a style appropriate for the audience. Do not use the phrase "TLDR:".
-{revision_prefix}
-Return ONLY the TLDR draft as plain text."""
-
-_DRAFT_USER = """\
-Article (first 4000 characters):
----
-{article_snippet}
----
-
-Write the TLDR draft."""
+def _get_client() -> Groq:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = Groq(api_key=os.environ["GROQ_API_KEY"])
+    return _CLIENT
 
 
-def draft_tldr_node(state: dict) -> dict:
-    from shared.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
+# ── Node 1: Key Points Extractor ─────────────────────────────────────────────
 
-    ctx = state.get("shared_context", {})
-    revision = state.get("revision_note", "")
-    article_snippet = state.get("article_text", "")[:4000]
+_KEY_POINTS_SYSTEM = """You are a research analyst. Extract exactly 3-5 key takeaways from the
+article. Each takeaway should be a complete, specific sentence — not a vague platitude.
 
-    system_prompt = _DRAFT_SYSTEM.format(
-        key_themes=", ".join(ctx.get("key_themes", [])) or "not specified",
-        main_message=ctx.get("main_message", ""),
-        target_audience=ctx.get("target_audience", "general readers"),
-        domain=ctx.get("domain", ""),
-        revision_prefix=f"REVISION REQUEST: {revision}" if revision else "",
+Prioritise: main contribution, methodology, results/findings, implications.
+
+Return ONLY a JSON array of 3-5 strings. No markdown, no numbering, no preamble."""
+
+
+def key_points_node(state: TLDRState) -> TLDRState:
+    client = _get_client()
+    text = state.get("text", "")[:5000]
+    themes = ", ".join(state.get("key_themes", []))
+    domain = state.get("domain", "General")
+    feedback = state.get("reviewer_feedback")
+
+    system = _KEY_POINTS_SYSTEM
+    if feedback:
+        system += f"\n\nREVIEWER FEEDBACK — prioritise these aspects: {feedback}"
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": f"Domain: {domain}\nKey themes: {themes}\n\nArticle:\n{text}",
+            },
+        ],
+        temperature=0.2,
+        max_tokens=512,
     )
 
-    llm = get_llm(temperature=0.3)
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=_DRAFT_USER.format(article_snippet=article_snippet)),
-        ])
-        draft = response.content.strip()
-        logger.info(f"[TLDR:DRAFT] Draft produced ({len(draft.split())} words).")
-        return {"draft_tldr": draft}
+        points = json.loads(raw)
+        if not isinstance(points, list):
+            points = []
+    except json.JSONDecodeError:
+        points = []
 
-    except Exception as e:
-        logger.error(f"[TLDR:DRAFT] Error: {e}")
-        return {"draft_tldr": "", "error": str(e)}
+    return {**state, "key_points": points[:5]}
 
 
-# ─── 3. REFINE ────────────────────────────────────────────────────────────────
+# ── Node 2: TLDR Drafter ─────────────────────────────────────────────────────
 
-_REFINE_SYSTEM = """\
-You are a precision editor. Your job is to tighten the TLDR draft below into a
-final version of exactly 2–3 sentences, with a MAXIMUM of 80 words.
+_DRAFTER_SYSTEM = """You are a science communicator writing a TLDR for a publication.
+Given key points and article metadata, write a clear, engaging TLDR paragraph.
 
-Rules:
-  - Keep the single most important insight from each of: problem, method, result
-  - Match the target audience's level: {target_audience}
-  - Remove all filler phrases ("In this paper", "We present", "Our work shows")
-  - Do not start with "TLDR" or similar labels
-  - Use active voice where possible
-  {revision_note}
+Requirements:
+- 3-5 sentences
+- Accessible to the stated target audience
+- Lead with the most important finding or contribution
+- Avoid jargon unless the audience is specialist
+- Do NOT start with "This paper" or "In this study"
 
-Return ONLY the polished TLDR as plain text. No labels, no JSON."""
-
-_REFINE_USER = """\
-Draft TLDR:
----
-{draft_tldr}
----
-
-Refined version (≤ 80 words):"""
+Return ONLY the TLDR paragraph as plain text. No markdown, no preamble."""
 
 
-def refine_tldr_node(state: dict) -> dict:
-    from shared.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
+def tldr_drafter_node(state: TLDRState) -> TLDRState:
+    client = _get_client()
+    points = state.get("key_points", [])
+    audience = state.get("target_audience", "")
+    message = state.get("main_message", "")
+    domain = state.get("domain", "General")
 
+    user_content = (
+        f"Target audience: {audience}\n"
+        f"Main message: {message}\n"
+        f"Domain: {domain}\n\n"
+        f"Key points:\n" + "\n".join(f"- {p}" for p in points)
+    )
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": _DRAFTER_SYSTEM},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.4,
+        max_tokens=512,
+    )
+
+    draft = response.choices[0].message.content.strip()
+    return {**state, "draft_tldr": draft}
+
+
+# ── Node 3: TLDR Refiner ─────────────────────────────────────────────────────
+
+_REFINER_SYSTEM = """You are a copyeditor finalising a TLDR for a publication.
+Given a draft TLDR, refine it and also produce a one-liner elevator pitch (≤25 words).
+
+Return ONLY a JSON object:
+{
+  "final_tldr": "The polished TLDR paragraph (3-5 sentences).",
+  "one_liner": "≤25 word elevator pitch."
+}
+No markdown, no preamble."""
+
+
+def tldr_refiner_node(state: TLDRState) -> TLDRState:
+    client = _get_client()
     draft = state.get("draft_tldr", "")
-    ctx = state.get("shared_context", {})
-    revision = state.get("revision_note", "")
+    feedback = state.get("reviewer_feedback")
+    audience = state.get("target_audience", "")
 
-    if not draft:
-        return {"tldr": "", "word_count": 0, "error": "No draft to refine."}
+    system = _REFINER_SYSTEM
+    if feedback:
+        system += f"\n\nREVIEWER FEEDBACK — apply this during refinement: {feedback}"
 
-    system_prompt = _REFINE_SYSTEM.format(
-        target_audience=ctx.get("target_audience", "general readers"),
-        revision_note=f"- REVISION: {revision}" if revision else "",
+    user_content = (
+        f"Target audience: {audience}\n\n"
+        f"Draft TLDR:\n{draft}"
     )
 
-    llm = get_llm(temperature=0.1)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.2,
+        max_tokens=512,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=_REFINE_USER.format(draft_tldr=draft)),
-        ])
-        tldr = response.content.strip()
-        word_count = len(tldr.split())
-        logger.info(f"[TLDR:REFINE] Final TLDR: {word_count} words.")
-        return {"tldr": tldr, "word_count": word_count}
-
-    except Exception as e:
-        logger.error(f"[TLDR:REFINE] Error: {e}")
-        # Fallback: use draft, truncate roughly
-        fallback = " ".join(draft.split()[:80])
-        return {"tldr": fallback, "word_count": len(fallback.split()), "error": str(e)}
-
-
-# ─── 4. END ───────────────────────────────────────────────────────────────────
-
-def tldr_end_node(state: dict) -> dict:
-    tldr = state.get("tldr", "")
-    error = state.get("error", "")
-    status = "failed" if error and not tldr else ("partial" if not tldr else "success")
-    logger.info(f"[TLDR:END] status={status} words={state.get('word_count', 0)}")
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = {}
 
     return {
-        "agent_result": {
-            "agent": "tldr",
-            "output": {
-                "tldr": tldr,
-                "word_count": state.get("word_count", 0),
-                "draft": state.get("draft_tldr", ""),
-            },
-            "status": status,
-            "error": error,
-        }
+        **state,
+        "final_tldr": parsed.get("final_tldr", draft),
+        "one_liner": parsed.get("one_liner", ""),
     }
