@@ -1,9 +1,9 @@
 # Author Assist
 
-**Coordinated multi-agent system for academic publication metadata generation.**
+**Coordinated multi-agent system for publication metadata generation.**
 
 Automatically generates titles, TLDRs, tags, and formatted references from any article —
-using a Manager → Parallel Agents → Reviewer architecture with targeted feedback loops.
+using a Manager → Parallel Agents → Reviewer architecture with targeted feedback loops. Hence, leaving the publisher to focus on the real work and not the metadata generation.
 
 ---
 
@@ -126,7 +126,7 @@ cp .env.example .env
 # Edit .env and add your key
 ```
 
-Get your free key at: https://console.groq.com
+Get your free key at: https://console.groq.com or any LLM provider of your choosing
 
 ---
 
@@ -263,3 +263,9 @@ All agents use **Groq** with `llama-3.3-70b-versatile` by default.
 - Fast inference (sub-second per node for most operations)
 - Free tier available at https://console.groq.com
 - Swap by changing the `model` parameter in any `nodes.py`
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

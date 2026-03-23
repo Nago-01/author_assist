@@ -1,4 +1,4 @@
-"""agents/title/state.py — internal LangGraph state for the Title agent."""
+"""Internal LangGraph state for the Title agent."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ class TitleState(TypedDict, total=False):
     reviewer_feedback: Optional[str]
 
     # Intermediate
-    candidate_titles: list[str]          # multiple raw candidates
+    candidate_titles: list[str]          
 
     # Final
     final_title: str
     title_rationale: str
-    alternative_titles: list[str]        # runner-up options
+    alternative_titles: list[str]        
     error: Optional[str]

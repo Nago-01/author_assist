@@ -1,6 +1,4 @@
 """
-core/reviewer.py
-----------------
 Reviewer node — evaluates ALL agent outputs and issues PER-AGENT verdicts.
 
 This is NOT a pass/fail gate. It returns targeted feedback for each agent:

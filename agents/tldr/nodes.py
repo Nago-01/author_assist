@@ -1,10 +1,7 @@
 """
-agents/tldr/nodes.py
---------------------
 Node functions for the TLDR agent LangGraph graph.
 
-Nodes
------
+Nodes:
 key_points_node   — extract 3-5 core take-aways from the article
 tldr_drafter_node — write a coherent TLDR paragraph from the key points
 tldr_refiner_node — polish, apply feedback, produce one-liner
@@ -29,7 +26,7 @@ def _get_client() -> Groq:
     return _CLIENT
 
 
-# ── Node 1: Key Points Extractor ─────────────────────────────────────────────
+# Key Points Extractor
 
 _KEY_POINTS_SYSTEM = """You are a research analyst. Extract exactly 3-5 key takeaways from the
 article. Each takeaway should be a complete, specific sentence — not a vague platitude.
@@ -80,7 +77,7 @@ def key_points_node(state: TLDRState) -> TLDRState:
     return {**state, "key_points": points[:5]}
 
 
-# ── Node 2: TLDR Drafter ─────────────────────────────────────────────────────
+# TLDR Drafter
 
 _DRAFTER_SYSTEM = """You are a science communicator writing a TLDR for a publication.
 Given key points and article metadata, write a clear, engaging TLDR paragraph.
@@ -123,7 +120,7 @@ def tldr_drafter_node(state: TLDRState) -> TLDRState:
     return {**state, "draft_tldr": draft}
 
 
-# ── Node 3: TLDR Refiner ─────────────────────────────────────────────────────
+# TLDR Refiner
 
 _REFINER_SYSTEM = """You are a copyeditor finalising a TLDR for a publication.
 Given a draft TLDR, refine it and also produce a one-liner elevator pitch (≤25 words).

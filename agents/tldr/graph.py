@@ -1,6 +1,4 @@
 """
-agents/tldr/graph.py
---------------------
 LangGraph graph for the TLDR agent.
 
 Graph topology (sequential pipeline):

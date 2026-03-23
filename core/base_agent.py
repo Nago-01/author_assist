@@ -1,6 +1,4 @@
 """
-core/base_agent.py
-------------------
 Shared contract that every agent must honour.
 Agents are completely ignorant of each other — they only know SharedContext
 (produced by the Manager) and optional ReviewerFeedback.
@@ -13,9 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-# ---------------------------------------------------------------------------
 # Data contracts
-# ---------------------------------------------------------------------------
 
 @dataclass
 class SharedContext:
@@ -45,9 +41,7 @@ class AgentResult:
     error: str | None = None
 
 
-# ---------------------------------------------------------------------------
 # Base class
-# ---------------------------------------------------------------------------
 
 class BaseAgent(ABC):
     """

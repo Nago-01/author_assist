@@ -1,6 +1,4 @@
 """
-agents/title/agent.py
----------------------
 Thin wrapper exposing the Title internal graph as a BaseAgent.
 The internal graph.py / nodes.py / state.py are fully standalone.
 """

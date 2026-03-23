@@ -1,6 +1,4 @@
 """
-agents/tags/agent.py
---------------------
 Thin wrapper that makes the Tags internal LangGraph graph
 conform to the BaseAgent interface.
 

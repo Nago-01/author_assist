@@ -1,6 +1,4 @@
 """
-core/pipeline.py
-----------------
 Main orchestration layer.
 
 Flow (mirrors the architecture diagram exactly):
@@ -15,8 +13,7 @@ Flow (mirrors the architecture diagram exactly):
       ↓ (loop: only failed agents re-run, up to MAX_REVISIONS)
     END              — assemble FinalOutput
 
-Design decisions
-----------------
+Design decisions:
 - asyncio.gather drives true parallel execution (each agent is async-wrapped).
 - The Reviewer returns a per-agent verdict map; only "needs_revision" agents
   re-enter the next round.
@@ -42,9 +39,7 @@ logger = logging.getLogger(__name__)
 MAX_REVISIONS = 3  # maximum reviewer → re-run cycles
 
 
-# ---------------------------------------------------------------------------
-# Agent registry  (import here to keep pipeline.py as the single wiring point)
-# ---------------------------------------------------------------------------
+# Agent registry
 
 def _build_registry() -> dict[str, Any]:
     """Lazy import so agents can be used standalone without importing pipeline."""
@@ -61,9 +56,7 @@ def _build_registry() -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
 # Async helpers
-# ---------------------------------------------------------------------------
 
 async def _run_agent_async(
     agent_name: str,
@@ -104,9 +97,7 @@ async def _run_agents_parallel(
     return {r.agent_name: r for r in results_list}
 
 
-# ---------------------------------------------------------------------------
 # Public entry point
-# ---------------------------------------------------------------------------
 
 def run_pipeline(text: str) -> dict[str, Any]:
     """
@@ -132,9 +123,7 @@ async def _async_pipeline(text: str) -> dict[str, Any]:
     """Core async pipeline. Called by run_pipeline()."""
     agent_registry = _build_registry()
 
-    # ------------------------------------------------------------------ #
-    # 1. Manager — build SharedContext
-    # ------------------------------------------------------------------ #
+    # Manager — build SharedContext
     state: PipelineState = {"raw_text": text, "revision_round": 0}
     state = manager_node(state)
 
@@ -144,18 +133,14 @@ async def _async_pipeline(text: str) -> dict[str, Any]:
     context: SharedContext = state["shared_context"]
     logger.info("Manager complete — domain=%s, themes=%s", context.domain, context.key_themes)
 
-    # ------------------------------------------------------------------ #
-    # 2. Initial parallel run — all agents, no feedback yet
-    # ------------------------------------------------------------------ #
+    # Initial parallel run — all agents, no feedback yet
     feedback_map: dict[str, str] = {}
     current_results: dict[str, AgentResult] = await _run_agents_parallel(
         agent_registry, context, feedback_map, revision_count=0
     )
     logger.info("Initial parallel run complete — %d agents", len(current_results))
 
-    # ------------------------------------------------------------------ #
-    # 3. Reviewer → selective re-run loop
-    # ------------------------------------------------------------------ #
+    # Reviewer → selective re-run loop
     final_verdicts: dict[str, str] = {}
     revision_round = 0
 
@@ -179,7 +164,7 @@ async def _async_pipeline(text: str) -> dict[str, Any]:
         if all_approved or revision_round >= MAX_REVISIONS:
             break
 
-        # ---- selective re-run: only failed agents -------------------- #
+        # selective re-run: only failed agents
         agents_to_rerun = {
             name: agent_registry[name]
             for name, verdict in verdicts.items()
@@ -206,9 +191,7 @@ async def _async_pipeline(text: str) -> dict[str, Any]:
             "Re-run round %d — revised agents: %s", revision_round, list(revised.keys())
         )
 
-    # ------------------------------------------------------------------ #
-    # 4. Assemble final output
-    # ------------------------------------------------------------------ #
+    # Assemble final output
     final_output: dict[str, Any] = {
         "title": current_results.get("title_generator", AgentResult("title_generator", {})).output,
         "tldr": current_results.get("tldr_generator", AgentResult("tldr_generator", {})).output,

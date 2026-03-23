@@ -1,10 +1,7 @@
 """
-agents/references/nodes.py
---------------------------
 Node functions for the References agent LangGraph graph.
 
-Nodes
------
+Nodes:
 citation_extractor_node  — regex + LLM to pull raw citation strings from text
 reference_parser_node    — structure each citation into a dict
 reference_formatter_node — normalise, deduplicate, detect style, finalise list
@@ -30,7 +27,7 @@ def _get_client() -> Groq:
     return _CLIENT
 
 
-# ── Node 1: Citation Extractor ────────────────────────────────────────────────
+# Citation Extractor
 
 # Common patterns: [1], [Author, 2023], (Author et al., 2023), numbered bibliography lines
 _INLINE_PATTERNS = [
@@ -104,7 +101,7 @@ def citation_extractor_node(state: ReferencesState) -> ReferencesState:
     return {**state, "raw_citations": merged}
 
 
-# ── Node 2: Reference Parser ──────────────────────────────────────────────────
+# Reference Parser
 
 _PARSER_SYSTEM = """You are a bibliographic data parser.
 Given a list of raw citation strings, parse each into a structured object.
@@ -167,7 +164,7 @@ def reference_parser_node(state: ReferencesState) -> ReferencesState:
     return {**state, "structured_refs": structured}
 
 
-# ── Node 3: Reference Formatter ───────────────────────────────────────────────
+# Reference Formatter
 
 _FORMATTER_SYSTEM = """You are a reference list editor.
 Given structured reference data, do three things:

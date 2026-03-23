@@ -1,5 +1,5 @@
 """
-orchestrator/reviewer.py — Reviewer node for the Author Assist orchestrator.
+Reviewer node for the Author Assist orchestrator.
 
 The Reviewer receives all four AgentResult objects plus the SharedContext and
 makes a single LLM call that evaluates all outputs together. It returns a

@@ -1,16 +1,5 @@
 """
-orchestrator/graph.py — Top-level LangGraph orchestrator for Author Assist.
-
-Architecture:
-  START
-    → manager_node              (analyses article, produces SharedContext)
-    → [run_tags | run_title | run_tldr | run_references]   (parallel fan-out)
-    → reviewer_node             (scores all 4 outputs, produces ReviewFeedback)
-    → route_after_review()      (conditional edge)
-         ├─ if agents need revision AND retry_count < max_retries:
-         │      re-run only the failing agents → reviewer_node → loop
-         └─ else:
-                final_output_node → END
+Top-level LangGraph orchestrator for Author Assist.
 
 Selective re-execution uses LangGraph's Send API to dispatch only the
 failing agents back into the graph, each carrying the Reviewer's
@@ -30,7 +19,7 @@ from orchestrator.reviewer import reviewer_node
 logger = logging.getLogger(__name__)
 
 
-# ─── Agent runner nodes ───────────────────────────────────────────────────────
+# Agent runner nodes
 # Each runner is a thin wrapper that invokes the agent's compiled sub-graph and
 # writes the returned AgentResult into the orchestrator state.
 
@@ -108,7 +97,7 @@ def _failed_result(agent: str, error: str) -> dict:
     return {"agent": agent, "output": {}, "status": "failed", "error": error}
 
 
-# ─── Routing ──────────────────────────────────────────────────────────────────
+# Routing
 
 def route_after_review(state: dict) -> list[str]:
     """
@@ -146,7 +135,7 @@ def route_after_review(state: dict) -> list[str]:
     return ["final_output"]
 
 
-# ─── Final output node ────────────────────────────────────────────────────────
+# Final output node
 
 def final_output_node(state: dict) -> dict:
     """
@@ -188,7 +177,7 @@ def final_output_node(state: dict) -> dict:
     return {"final_output": final_output}
 
 
-# ─── Graph builder ────────────────────────────────────────────────────────────
+# Graph builder
 
 def build_orchestrator_graph() -> Any:
     """
@@ -198,7 +187,7 @@ def build_orchestrator_graph() -> Any:
     """
     builder = StateGraph(OrchestratorState)
 
-    # ── Nodes ──────────────────────────────────────────────────────────────
+    # Nodes
     builder.add_node("manager",       manager_node)
     builder.add_node("run_tags",      run_tags_node)
     builder.add_node("run_title",     run_title_node)
@@ -207,8 +196,7 @@ def build_orchestrator_graph() -> Any:
     builder.add_node("reviewer",      reviewer_node)
     builder.add_node("final_output",  final_output_node)
 
-    # ── Edges ──────────────────────────────────────────────────────────────
-    # Entry: manager first
+    # Edges
     builder.add_edge(START, "manager")
 
     # After manager: fan-out to all 4 agents in parallel

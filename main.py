@@ -1,23 +1,5 @@
 """
-main.py
--------
 CLI entry point for the Author Assist multi-agent pipeline.
-
-Usage
------
-  # Run on a file
-  python main.py --file paper.pdf
-  python main.py --file manuscript.docx
-  python main.py --file article.txt
-
-  # Run on inline text
-  python main.py --text "Your article content here..."
-
-  # Save output to a specific file (default: author_assist_output.json)
-  python main.py --file paper.pdf --output results.json
-
-  # Verbose mode (shows agent-level details)
-  python main.py --file paper.pdf --verbose
 """
 
 from __future__ import annotations
@@ -32,7 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env (GROQ_API_KEY)
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _check_env() -> None:
@@ -154,7 +136,7 @@ def main() -> None:
     _check_env()
     _setup_logging(args.verbose)
 
-    # ── Read input text ────────────────────────────────────────────── #
+    # Read input text#
     if args.file:
         from core.file_reader import read_file  # noqa: PLC0415
 
@@ -167,7 +149,7 @@ def main() -> None:
     else:
         text = args.text
 
-    # ── Run pipeline ───────────────────────────────────────────────── #
+    # Run pipeline
     print("Starting Author Assist pipeline…")
     print("  Step 1/3 — Manager: analysing article…")
 
@@ -179,14 +161,14 @@ def main() -> None:
         print(f"\n[ERROR] Pipeline failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # ── Save output ────────────────────────────────────────────────── #
+    # Save output
     out_path = Path(args.output)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
     print(f"  Step 3/3 — Output saved to: {out_path.resolve()}")
 
-    # ── Print summary ──────────────────────────────────────────────── #
+    # Print summary
     _print_results(output, args.verbose)
 
 

@@ -1,6 +1,4 @@
 """
-agents/references/agent.py
---------------------------
 Thin wrapper exposing the References internal graph as a BaseAgent.
 """
 

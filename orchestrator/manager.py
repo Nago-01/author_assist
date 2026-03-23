@@ -1,5 +1,5 @@
 """
-orchestrator/manager.py — Manager node for the Author Assist orchestrator.
+Manager node for the Author Assist orchestrator.
 
 The Manager is the first node in the top-level graph. It reads the article text
 and produces a SharedContext — a rich structured understanding of:

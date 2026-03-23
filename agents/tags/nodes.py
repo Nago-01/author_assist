@@ -37,7 +37,7 @@ def gazetteer_node(state: TagState) -> TagState:
     """Dictionary lookup — deterministic, high precision."""
     hits = lookup(state.get("text", ""))
     candidates = [name for name, _ in hits]
-    return {**state, "gazetteer_candidates": candidates}
+    return {"gazetteer_candidates": candidates}
 
 
 # ── Node 2: spaCy NER ────────────────────────────────────────────────────────
@@ -66,11 +66,11 @@ def spacy_node(state: TagState) -> TagState:
                     seen.add(clean.lower())
                     candidates.append(clean)
 
-        return {**state, "spacy_candidates": candidates[:30]}  # cap at 30
+        return {"spacy_candidates": candidates[:30]}  # cap at 30
 
     except Exception:  # noqa: BLE001
         # spaCy not installed or model missing — skip gracefully
-        return {**state, "spacy_candidates": []}
+        return {"spacy_candidates": []}
 
 
 # ── Node 3: LLM Extractor ────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ def llm_extractor_node(state: TagState) -> TagState:
     except json.JSONDecodeError:
         candidates = []
 
-    return {**state, "llm_candidates": candidates}
+    return {"llm_candidates": candidates}
 
 
 # ── Node 4: Aggregator ───────────────────────────────────────────────────────
@@ -184,4 +184,4 @@ def aggregator_node(state: TagState) -> TagState:
     except json.JSONDecodeError:
         final_tags = []
 
-    return {**state, "final_tags": final_tags[:10]}
+    return {"final_tags": final_tags[:10]}

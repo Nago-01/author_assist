@@ -1,6 +1,4 @@
 """
-core/file_reader.py
--------------------
 Unified file ingestion layer — used by main.py CLI.
 Supports PDF, DOCX, DOC, TXT.
 Agents never call this directly — they always receive plain text from the pipeline.
@@ -39,7 +37,7 @@ def read_file(path: str) -> str:
         )
 
 
-# ── Readers ───────────────────────────────────────────────────────────────────
+# Readers
 
 def _read_txt(path: Path) -> str:
     try:
@@ -49,9 +47,9 @@ def _read_txt(path: Path) -> str:
 
 
 def _read_pdf(path: Path) -> str:
-    # Primary: pdfplumber (layout-aware)
+    # Primary: pdfplumber
     try:
-        import pdfplumber  # noqa: PLC0415
+        import pdfplumber  
 
         text_parts: list[str] = []
         with pdfplumber.open(str(path)) as pdf:
@@ -64,12 +62,12 @@ def _read_pdf(path: Path) -> str:
             return text
     except ImportError:
         pass
-    except Exception:  # noqa: BLE001
+    except Exception:  
         pass
 
     # Fallback: pypdf
     try:
-        from pypdf import PdfReader  # noqa: PLC0415
+        from pypdf import PdfReader  
 
         reader = PdfReader(str(path))
         pages = [page.extract_text() or "" for page in reader.pages]
@@ -79,11 +77,11 @@ def _read_pdf(path: Path) -> str:
     except ImportError:
         pass
 
-    return ""  # image-only PDF — no text extractable
+    return ""  
 
 
 def _read_docx(path: Path) -> str:
-    from docx import Document  # noqa: PLC0415
+    from docx import Document  
 
     doc = Document(str(path))
     parts: list[str] = []
@@ -102,7 +100,7 @@ def _read_docx(path: Path) -> str:
 
 
 def _read_doc(path: Path) -> str:
-    import mammoth  # noqa: PLC0415
+    import mammoth  
 
     with open(str(path), "rb") as f:
         result = mammoth.extract_raw_text(f)

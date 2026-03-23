@@ -1,15 +1,13 @@
 """
-agents/tags/gazetteer.py
-------------------------
 Curated domain dictionary for high-precision tag lookup.
 Edit this file to extend coverage — no code changes needed elsewhere.
 """
 
 from __future__ import annotations
 
-# Structure: { term_lowercase: (canonical_display_name, category) }
+# Structure:    
 GAZETTEER: dict[str, tuple[str, str]] = {
-    # ── AI/ML Concepts ────────────────────────────────────────────────
+    # AI/ML Concepts
     "transformer": ("Transformer", "AI/ML Concept"),
     "transformers": ("Transformer", "AI/ML Concept"),
     "attention mechanism": ("Attention Mechanism", "AI/ML Concept"),
@@ -57,14 +55,16 @@ GAZETTEER: dict[str, tuple[str, str]] = {
     "multi-agent": ("Multi-Agent System", "AI/ML Concept"),
     "tool use": ("Tool Use", "AI/ML Concept"),
     "function calling": ("Function Calling", "AI/ML Concept"),
-    # ── Researchers ───────────────────────────────────────────────────
+
+    # Researchers
     "hinton": ("Geoffrey Hinton", "Researcher"),
     "lecun": ("Yann LeCun", "Researcher"),
     "bengio": ("Yoshua Bengio", "Researcher"),
     "karpathy": ("Andrej Karpathy", "Researcher"),
     "vaswani": ("Ashish Vaswani", "Researcher"),
     "brown": ("Tom Brown", "Researcher"),
-    # ── Organizations ─────────────────────────────────────────────────
+
+    # Organizations
     "openai": ("OpenAI", "Organization"),
     "deepmind": ("DeepMind", "Organization"),
     "google deepmind": ("Google DeepMind", "Organization"),
@@ -75,7 +75,8 @@ GAZETTEER: dict[str, tuple[str, str]] = {
     "mistral": ("Mistral AI", "Organization"),
     "cohere": ("Cohere", "Organization"),
     "nvidia": ("NVIDIA", "Organization"),
-    # ── Models ────────────────────────────────────────────────────────
+
+    # Models
     "gpt-4": ("GPT-4", "Model"),
     "gpt-3": ("GPT-3", "Model"),
     "gpt-3.5": ("GPT-3.5", "Model"),
@@ -85,7 +86,8 @@ GAZETTEER: dict[str, tuple[str, str]] = {
     "mistral 7b": ("Mistral 7B", "Model"),
     "bert": ("BERT", "Model"),
     "t5": ("T5", "Model"),
-    # ── Conferences & Journals ────────────────────────────────────────
+
+    # Conferences & Journals
     "neurips": ("NeurIPS", "Conference"),
     "icml": ("ICML", "Conference"),
     "iclr": ("ICLR", "Conference"),
@@ -94,7 +96,8 @@ GAZETTEER: dict[str, tuple[str, str]] = {
     "arxiv": ("arXiv", "Journal/Preprint"),
     "jmlr": ("JMLR", "Journal/Preprint"),
     "nature": ("Nature", "Journal/Preprint"),
-    # ── Healthcare ────────────────────────────────────────────────────
+
+    # Healthcare
     "clinical trial": ("Clinical Trial", "Healthcare"),
     "ehr": ("Electronic Health Records", "Healthcare"),
     "electronic health records": ("Electronic Health Records", "Healthcare"),

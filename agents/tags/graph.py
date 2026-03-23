@@ -1,6 +1,4 @@
 """
-agents/tags/graph.py
---------------------
 Wires the Tags agent internal LangGraph graph.
 
 Graph topology (parallel extraction):

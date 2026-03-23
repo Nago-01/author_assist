@@ -1,4 +1,4 @@
-"""agents/references/state.py — internal LangGraph state for the References agent."""
+"""Internal LangGraph state for the References agent."""
 
 from __future__ import annotations
 

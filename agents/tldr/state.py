@@ -1,4 +1,4 @@
-"""agents/tldr/state.py — internal LangGraph state for the TLDR agent."""
+"""Internal LangGraph state for the TLDR agent."""
 
 from __future__ import annotations
 

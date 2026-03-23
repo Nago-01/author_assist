@@ -1,6 +1,4 @@
 """
-agents/references/graph.py
---------------------------
 LangGraph graph for the References agent.
 
 Graph topology (sequential pipeline):

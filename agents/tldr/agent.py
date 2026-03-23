@@ -1,6 +1,4 @@
 """
-agents/tldr/agent.py
---------------------
 Thin wrapper exposing the TLDR internal graph as a BaseAgent.
 """
 

@@ -1,10 +1,7 @@
 """
-core/manager.py
----------------
 Manager node — the ONLY node that reads raw input text.
 
-Responsibilities
-----------------
+Responsibilities:
 1. Call the LLM once to extract key themes, audience, domain, main message.
 2. Produce a SharedContext that is broadcast to all agents.
 3. Never run any agent logic itself.

@@ -1,10 +1,7 @@
 """
-agents/title/nodes.py
----------------------
 Node functions for the Title agent LangGraph graph.
 
-Nodes
------
+Nodes:
 candidate_generator_node  — generate 5 candidate titles via LLM
 title_selector_node       — pick the best one, explain why
 """
@@ -28,7 +25,7 @@ def _get_client() -> Groq:
     return _CLIENT
 
 
-# ── Node 1: Candidate Generator ──────────────────────────────────────────────
+# Candidate Generator
 
 _CANDIDATE_SYSTEM = """You are an academic publication title specialist.
 Given an article's text and metadata, generate exactly 5 candidate titles.
@@ -91,7 +88,7 @@ def candidate_generator_node(state: TitleState) -> TitleState:
     return {**state, "candidate_titles": candidates[:5]}
 
 
-# ── Node 2: Title Selector ────────────────────────────────────────────────────
+# Title Selector
 
 _SELECTOR_SYSTEM = """You are a senior journal editor selecting the best title from candidates.
 Given the article context and 5 candidate titles, select the single best title.

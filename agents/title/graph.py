@@ -1,6 +1,4 @@
 """
-agents/title/graph.py
----------------------
 LangGraph graph for the Title agent.
 
 Graph topology (sequential — selection depends on candidates):
