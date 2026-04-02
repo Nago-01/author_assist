@@ -1,14 +1,6 @@
 """
 FastAPI backend for Author Assist.
 
-Exposes two endpoints:
-  POST /analyze/text  — accepts a raw JSON body {"text": "..."} 
-  POST /analyze/file  — accepts a multipart file upload (PDF/DOCX/TXT)
-
-Both endpoints pass the extracted text into core.pipeline.run_pipeline()
-and return the standard FinalOutput JSON.
-
-Deploy on Hugging Face Spaces as a Docker Space.
 """
 
 from __future__ import annotations

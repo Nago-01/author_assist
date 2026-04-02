@@ -36,7 +36,7 @@ from core.state import PipelineState
 
 logger = logging.getLogger(__name__)
 
-MAX_REVISIONS = 3  # maximum reviewer → re-run cycles
+MAX_REVISIONS = 2  # maximum reviewer → re-run cycles (References uses short-circuit on revision)
 
 
 # Agent registry

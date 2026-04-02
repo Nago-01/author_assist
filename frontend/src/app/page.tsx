@@ -123,7 +123,7 @@ export default function Home() {
       <header className="hero">
         <div className="hero-logo">Author Assist</div>
         <p className="hero-tagline">
-          AI-powered metadata generation for academic publications. Upload a paper and get
+          AI-powered metadata generation for publications. Upload a paper and get
           titles, TLDRs, tags, and references in seconds.
         </p>
       </header>
@@ -138,14 +138,14 @@ export default function Home() {
               className={`mode-btn ${mode === 'file' ? 'active' : ''}`}
               onClick={() => setMode('file')}
             >
-              📄 Upload File
+              Upload File
             </button>
             <button
               id="mode-text"
               className={`mode-btn ${mode === 'text' ? 'active' : ''}`}
               onClick={() => setMode('text')}
             >
-              ✏️ Paste Text
+              Paste Text
             </button>
           </div>
 
