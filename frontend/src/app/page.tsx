@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { useEffect, useState, useRef, DragEvent, ChangeEvent } from 'react';
 import ResultsDashboard from '@/components/ResultsDashboard';
 import LoadingState from '@/components/LoadingState';
+import HistoryPanel from '@/components/HistoryPanel';
+import {
+  clearHistory,
+  loadHistory,
+  saveToHistory,
+  type HistoryEntry,
+} from '@/lib/history';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,8 +62,13 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   // ── Drag & drop handlers ───────────────────────────────────────────────────
 
@@ -104,6 +116,7 @@ export default function Home() {
 
       const data: AnalysisResult = await response.json();
       setResult(data);
+      setHistory(saveToHistory(data));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
     } finally {
@@ -225,6 +238,22 @@ export default function Home() {
             ← Analyse another article
           </button>
         </>
+      )}
+
+      {!loading && (
+        <HistoryPanel
+          entries={history}
+          onRestore={(entry) => {
+            setResult(entry.result);
+            setError(null);
+            setFile(null);
+            setRawText('');
+          }}
+          onClear={() => {
+            clearHistory();
+            setHistory([]);
+          }}
+        />
       )}
     </main>
   );

@@ -19,5 +19,11 @@ mammoth>=1.6.0        # .doc (legacy Word) support
 # ── Environment ───────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
 
+# ── API backend ───────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+uvicorn>=0.30.0
+
 # ── Type hints ────────────────────────────────────────────────────────────────
 typing-extensions>=4.9.0
