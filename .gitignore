@@ -21,6 +21,8 @@ env/
 author_assist_output.json
 *.json
 !package.json
+!package-lock.json
+!tsconfig.json
 
 # IDE
 .vscode/
