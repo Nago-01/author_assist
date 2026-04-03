@@ -1,0 +1,30 @@
+name: Sync to Hugging Face Hub
+on:
+  push:
+    branches: [main]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          
+          # We force push to HF space to keep it perfectly synced with GitHub main branch
+          # Format: https://user:token@huggingface.co/spaces/YOUR_HF_USERNAME/YOUR_SPACE_NAME
+          
+          # NOTE: The repo URL is drawn from the HF_SPACE environment variable if provided, 
+          # otherwise you must hardcode your space URL below.
+          git push -f https://nago-01:$HF_TOKEN@huggingface.co/spaces/nago-01/author-assist-api main
