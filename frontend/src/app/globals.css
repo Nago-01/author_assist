@@ -1,10 +1,8 @@
-/* ============================================================
-   Author Assist — Global Design System
-   ============================================================ */
+/* Author Assist — Global Design System */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap');
 
-/* ── Tokens ─────────────────────────────────────────────── */
+/* Tokens */
 :root {
   --bg:          #0d1117;
   --surface:     #161b22;
@@ -29,7 +27,7 @@
   --shadow:      0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
-/* ── Reset ──────────────────────────────────────────────── */
+/* Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -40,14 +38,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Layout ─────────────────────────────────────────────── */
+/* Layout */
 .page-wrapper {
   max-width: 1100px;
   margin: 0 auto;
   padding: 48px 24px 80px;
 }
 
-/* ── Hero ───────────────────────────────────────────────── */
+/* Hero */
 .hero {
   text-align: center;
   margin-bottom: 48px;
@@ -73,7 +71,7 @@ body {
   line-height: 1.6;
 }
 
-/* ── Glass card ─────────────────────────────────────────── */
+/* Glass card */
 .glass-card {
   background: rgba(22, 27, 34, 0.8);
   border: 1px solid var(--border);
@@ -82,7 +80,7 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* ── Upload zone ────────────────────────────────────────── */
+/* Upload zone */
 .upload-zone {
   padding: 48px 32px;
   text-align: center;
@@ -142,7 +140,7 @@ body {
 
 .upload-hidden { display: none; }
 
-/* ── Textarea mode ──────────────────────────────────────── */
+/* Textarea mode */
 .text-area {
   width: 100%;
   min-height: 160px;
@@ -160,7 +158,7 @@ body {
 .text-area:focus { border-color: var(--glow-blue); }
 .text-area::placeholder { color: var(--text-secondary); }
 
-/* ── Toggle ─────────────────────────────────────────────── */
+/* Toggle */
 .mode-toggle {
   display: flex;
   gap: 0;
@@ -188,7 +186,7 @@ body {
   color: #000;
 }
 
-/* ── Analyze button ─────────────────────────────────────── */
+/* Analyze button */
 .analyze-btn {
   margin-top: 20px;
   width: 100%;
@@ -206,7 +204,7 @@ body {
 .analyze-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
 .analyze-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ── Loading state ──────────────────────────────────────── */
+/* Loading state */
 .loading-wrap {
   text-align: center;
   padding: 60px 24px;
@@ -266,7 +264,7 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Results grid ───────────────────────────────────────── */
+/* Results grid */
 .results-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -297,7 +295,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* ── Title section ──────────────────────────────────────── */
+/* Title section */
 .final-title {
   font-family: 'Playfair Display', serif;
   font-size: 1.2rem;
@@ -332,7 +330,7 @@ body {
 }
 .alt-title-list li:last-child { border-bottom: none; }
 
-/* ── Tags section ───────────────────────────────────────── */
+/* Tags section */
 .tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .tag-pill {
@@ -380,7 +378,7 @@ body {
 
 .tag-pill:hover .tag-tooltip { display: block; }
 
-/* ── TLDR section ───────────────────────────────────────── */
+/* TLDR section */
 .one-liner {
   font-size: 1rem;
   font-style: italic;
@@ -396,7 +394,7 @@ body {
   line-height: 1.7;
 }
 
-/* ── References section ─────────────────────────────────── */
+/* References section */
 .refs-list { list-style: none; }
 
 .refs-list li {
@@ -426,7 +424,7 @@ body {
   margin-top: 1px;
 }
 
-/* ── Meta bar ───────────────────────────────────────────── */
+/* Meta bar */
 .meta-bar {
   margin-top: 28px;
   padding: 14px 20px;
@@ -462,7 +460,7 @@ body {
   color: var(--glow-orange);
 }
 
-/* ── Error ──────────────────────────────────────────────── */
+/* Error */
 .error-box {
   padding: 16px 20px;
   border-radius: var(--radius);
@@ -474,7 +472,7 @@ body {
   line-height: 1.5;
 }
 
-/* ── Reset button ───────────────────────────────────────── */
+/* Reset button */
 .reset-btn {
   margin-top: 24px;
   background: transparent;
@@ -490,7 +488,7 @@ body {
 }
 .reset-btn:hover { border-color: var(--glow-blue); color: var(--glow-blue); }
 
-/* ── History panel ──────────────────────────────────────── */
+/* History panel */
 .history-section {
   margin-top: 48px;
   border-top: 1px solid var(--border);

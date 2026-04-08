@@ -11,7 +11,7 @@ import {
   type HistoryEntry,
 } from '@/lib/history';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 export type AnalysisResult = {
   title: {
@@ -48,12 +48,12 @@ export type AnalysisResult = {
   };
 };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// Constants
 
 // In production, set this to your Hugging Face Space URL
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// Main Page
 
 export default function Home() {
   const [mode, setMode] = useState<'file' | 'text'>('file');
@@ -71,7 +71,7 @@ export default function Home() {
     setHistory(loadHistory());
   }, []);
 
-  // ── Drag & drop handlers ───────────────────────────────────────────────────
+  // Drag & drop handlers
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -85,7 +85,7 @@ export default function Home() {
     if (picked) setFile(picked);
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // Submit
 
   const handleAnalyze = async () => {
     setError(null);
@@ -134,7 +134,7 @@ export default function Home() {
   const canSubmit =
     !loading && (mode === 'file' ? file !== null : rawText.trim().length > 50);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  //Render
 
   return (
     <main className="page-wrapper">
