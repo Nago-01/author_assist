@@ -64,6 +64,7 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [tokenLimitError, setTokenLimitError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function Home() {
 
   const handleAnalyze = async () => {
     setError(null);
+    setTokenLimitError(false);
     setResult(null);
     setLoading(true);
 
@@ -118,7 +120,12 @@ export default function Home() {
       setResult(data);
       setHistory(saveToHistory(data));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unexpected error');
+      const errorMessage = err instanceof Error ? err.message : 'Unexpected error';
+      if (/token limit|too many tokens|context length|context limit|context_length_exceeded|rate limit/i.test(errorMessage)) {
+        setTokenLimitError(true);
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -246,6 +253,7 @@ export default function Home() {
           onRestore={(entry) => {
             setResult(entry.result);
             setError(null);
+            setTokenLimitError(false);
             setFile(null);
             setRawText('');
           }}
@@ -254,6 +262,23 @@ export default function Home() {
             setHistory([]);
           }}
         />
+      )}
+
+      {/* Token Limit Modal */}
+      {tokenLimitError && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-icon">⚠️</div>
+            <h2 className="modal-title">Document Too Long</h2>
+            <p className="modal-text">
+              The paper you provided exceeded the AI's maximum token limit. 
+              Please try uploading a shorter paper, or pasting a smaller excerpt.
+            </p>
+            <button className="modal-btn" onClick={() => setTokenLimitError(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
       )}
     </main>
   );
